@@ -4,7 +4,6 @@
  * This is your main page for the infinite scroll article reader.
  * 
  * TODO: Implement:
- * - Active article tracking
  * - Refresh resilience (localStorage/sessionStorage)
  * - Prefetch next page
  * - Search bar with debouncing
@@ -25,12 +24,12 @@ export default function ReadPage() {
   const [error, setError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [searchInput, setSearchInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [activeArticleId, setActiveArticleId] = useState<string | null>(articleId ?? null);
 
   // TODO: Implement refresh resilience
   // TODO: Implement prefetch
-  // TODO: Implement search with debouncing
 
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const articleRefs = useRef<Map<string, HTMLElement>>(new Map());
@@ -39,6 +38,20 @@ export default function ReadPage() {
     // Initial load
     loadArticles();
   }, []);
+
+  // Debounce search input → searchQuery (300ms)
+  useEffect(() => {
+    const timer = setTimeout(() => setSearchQuery(searchInput), 300);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
+  // When searchQuery changes, reset and reload from scratch
+  useEffect(() => {
+    setArticles([]);
+    setNextCursor(null);
+    setHasMore(true);
+    loadArticles();
+  }, [searchQuery]);
 
   const loadArticles = useCallback(async (cursor: string | null = null) => {
     try {
@@ -128,7 +141,13 @@ export default function ReadPage() {
     <div className="read-page">
       <header className="read-header">
         <h1>Article Reader</h1>
-        {/* TODO: Add search bar */}
+        <input
+          type="text"
+          className="search-bar"
+          placeholder="Search articles..."
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+        />
       </header>
       
       <main className="read-content">

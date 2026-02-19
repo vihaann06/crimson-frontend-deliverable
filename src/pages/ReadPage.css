@@ -13,6 +13,20 @@
   margin-bottom: 1rem;
 }
 
+.search-bar {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  font-size: 1rem;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  box-sizing: border-box;
+}
+
+.search-bar:focus {
+  outline: none;
+  border-color: #007bff;
+}
+
 .read-content {
   /* Add your styles here */
 }
