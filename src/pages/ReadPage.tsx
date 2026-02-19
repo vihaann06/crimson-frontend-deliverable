@@ -26,7 +26,13 @@ export default function ReadPage() {
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [searchInput, setSearchInput] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [activeArticleId, setActiveArticleId] = useState<string | null>(articleId ?? null);
+
+  const CATEGORIES = [
+    'Technology', 'Science', 'Business', 'Health',
+    'Culture', 'Politics', 'Environment', 'Education',
+  ];
 
   // TODO: Implement refresh resilience
   // TODO: Implement prefetch
@@ -45,13 +51,13 @@ export default function ReadPage() {
     return () => clearTimeout(timer);
   }, [searchInput]);
 
-  // When searchQuery changes, reset and reload from scratch
+  // When searchQuery or category changes, reset and reload from scratch
   useEffect(() => {
     setArticles([]);
     setNextCursor(null);
     setHasMore(true);
     loadArticles();
-  }, [searchQuery]);
+  }, [searchQuery, selectedCategory]);
 
   const loadArticles = useCallback(async (cursor: string | null = null) => {
     try {
@@ -62,10 +68,11 @@ export default function ReadPage() {
         cursor,
         limit: 10,
         q: searchQuery || null,
+        category: selectedCategory,
       });
 
       console.log("fetched 10 articles")
-      
+
       setArticles(prev => cursor ? [...prev, ...response.items] : response.items);
       setNextCursor(response.nextCursor);
       setHasMore(response.hasMore);
@@ -74,7 +81,7 @@ export default function ReadPage() {
     } finally {
       setLoading(false);
     }
-  }, [searchQuery]);
+  }, [searchQuery, selectedCategory]);
 
   // Infinite scroll: observe sentinel element
   useEffect(() => {
@@ -148,6 +155,23 @@ export default function ReadPage() {
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
         />
+        <div className="category-filters">
+          <button
+            className={`category-btn${selectedCategory === null ? ' active' : ''}`}
+            onClick={() => setSelectedCategory(null)}
+          >
+            All
+          </button>
+          {CATEGORIES.map((cat) => (
+            <button
+              key={cat}
+              className={`category-btn${selectedCategory === cat ? ' active' : ''}`}
+              onClick={() => setSelectedCategory(selectedCategory === cat ? null : cat)}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
       </header>
       
       <main className="read-content">
