@@ -12,26 +12,28 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { fetchArticles } from '../api/client';
 import type { ArticleListItem } from '../types';
 import './ReadPage.css';
 
 export default function ReadPage() {
   const { articleId } = useParams();
+  const navigate = useNavigate();
   const [articles, setArticles] = useState<ArticleListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeArticleId, setActiveArticleId] = useState<string | null>(articleId ?? null);
 
-  // TODO: Implement active article tracking
   // TODO: Implement refresh resilience
   // TODO: Implement prefetch
   // TODO: Implement search with debouncing
 
   const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const articleRefs = useRef<Map<string, HTMLElement>>(new Map());
 
   useEffect(() => {
     // Initial load
@@ -76,6 +78,52 @@ export default function ReadPage() {
     return () => observer.disconnect();
   }, [hasMore, loading, nextCursor, loadArticles]);
 
+  // Active article tracking: find the article closest to the viewport center
+  useEffect(() => {
+    let ticking = false;
+
+    const updateActiveArticle = () => {
+      const viewportCenter = window.innerHeight / 2;
+      let closestId: string | null = null;
+      let closestDistance = Infinity;
+
+      articleRefs.current.forEach((el, id) => {
+        const rect = el.getBoundingClientRect();
+        const articleCenter = rect.top + rect.height / 2;
+        const distance = Math.abs(articleCenter - viewportCenter);
+        if (distance < closestDistance) {
+          closestDistance = distance;
+          closestId = id;
+        }
+      });
+
+      if (closestId) {
+        setActiveArticleId(closestId);
+      }
+    };
+
+    const onScroll = () => {
+      if (!ticking) {
+        requestAnimationFrame(() => {
+          updateActiveArticle();
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    updateActiveArticle(); // set initial active article
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [articles]);
+
+  // Update URL when active article changes
+  useEffect(() => {
+    if (activeArticleId) {
+      navigate(`/read/${activeArticleId}`, { replace: true });
+    }
+  }, [activeArticleId, navigate]);
+
   return (
     <div className="read-page">
       <header className="read-header">
@@ -103,7 +151,15 @@ export default function ReadPage() {
         
         <div className="articles-list">
           {articles.map((article) => (
-            <article key={article.id} className="article-card">
+            <article
+              key={article.id}
+              data-article-id={article.id}
+              ref={(el) => {
+                if (el) articleRefs.current.set(article.id, el);
+                else articleRefs.current.delete(article.id);
+              }}
+              className={`article-card${activeArticleId === article.id ? ' active' : ''}`}
+            >
               <h2>{article.title}</h2>
               <p className="article-dek">{article.dek}</p>
               <div className="article-meta">
