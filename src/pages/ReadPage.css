@@ -89,6 +89,20 @@
   gap: 0.5rem;
 }
 
+.article-image {
+  width: 100%;
+  height: auto;
+  border-radius: 6px;
+  margin-top: 1rem;
+}
+
+.article-body {
+  margin-top: 1rem;
+  line-height: 1.7;
+  font-size: 1.05rem;
+  color: #333;
+}
+
 .loading-state,
 .error-state,
 .empty-state,

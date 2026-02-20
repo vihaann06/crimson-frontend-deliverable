@@ -4,10 +4,6 @@
  * This is your main page for the infinite scroll article reader.
  * 
  * TODO: Implement:
- * - Refresh resilience (localStorage/sessionStorage)
- * - Prefetch next page
- * - Search bar with debouncing
- * - Loading, error, and empty states
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -35,7 +31,13 @@ export default function ReadPage() {
   ];
 
   // TODO: Implement refresh resilience
-  // TODO: Implement prefetch
+
+  const prefetchedRef = useRef<{
+    cursor: string;
+    items: ArticleListItem[];
+    nextCursor: string | null;
+    hasMore: boolean;
+  } | null>(null);
 
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const articleRefs = useRef<Map<string, HTMLElement>>(new Map());
@@ -56,32 +58,60 @@ export default function ReadPage() {
     setArticles([]);
     setNextCursor(null);
     setHasMore(true);
+    prefetchedRef.current = null;
     loadArticles();
   }, [searchQuery, selectedCategory]);
 
-  const loadArticles = useCallback(async (cursor: string | null = null) => {
+  const prefetchNext = useCallback(async (cursor: string) => {
     try {
-      setLoading(true);
-      setError(null);
-      
       const response = await fetchArticles({
         cursor,
         limit: 10,
         q: searchQuery || null,
         category: selectedCategory,
       });
+      prefetchedRef.current = { cursor, ...response };
+    } catch {
+      // Silently fail — we'll fetch normally when the user reaches the sentinel
+    }
+  }, [searchQuery, selectedCategory]);
+
+  const loadArticles = useCallback(async (cursor: string | null = null) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      let response;
+
+      // Use prefetched data if available for this cursor
+      if (cursor && prefetchedRef.current?.cursor === cursor) {
+        response = prefetchedRef.current;
+        prefetchedRef.current = null;
+      } else {
+        response = await fetchArticles({
+          cursor,
+          limit: 10,
+          q: searchQuery || null,
+          category: selectedCategory,
+        });
+      }
 
       console.log("fetched 10 articles")
 
       setArticles(prev => cursor ? [...prev, ...response.items] : response.items);
       setNextCursor(response.nextCursor);
       setHasMore(response.hasMore);
+
+      // Prefetch the next page in the background
+      if (response.hasMore && response.nextCursor) {
+        prefetchNext(response.nextCursor);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load articles');
     } finally {
       setLoading(false);
     }
-  }, [searchQuery, selectedCategory]);
+  }, [searchQuery, selectedCategory, prefetchNext]);
 
   // Infinite scroll: observe sentinel element
   useEffect(() => {
@@ -212,7 +242,17 @@ export default function ReadPage() {
                 <span>•</span>
                 <span>{new Date(article.publishedAt).toLocaleDateString()}</span>
               </div>
-              {/* TODO: Render full article content */}
+              {article.imageUrl && (
+                <img
+                  src={article.imageUrl}
+                  alt={article.title}
+                  className="article-image"
+                />
+              )}
+              <div
+                className="article-body"
+                dangerouslySetInnerHTML={{ __html: article.contentHtml }}
+              />
             </article>
           ))}
         </div>
